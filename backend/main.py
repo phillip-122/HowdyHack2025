@@ -25,7 +25,24 @@ def score_video(file: UploadFile) -> float:
 
 @app.get("/leaderboard")
 def get_leaderboard()-> Any:
-    return {"leaderboard": db.get_top_scores()}
+    try:
+        scores = db.get_top_scores()
+        # Convert to format frontend expects
+        leaderboard_data = []
+        for row in scores:
+            # Get user's best trick for display
+            tricks = db.get_user_tricks(row['name'])
+            best_trick = tricks[0]['trick_name'] if tricks else "N/A"
+            
+            leaderboard_data.append({
+                "name": row['name'],
+                "trick_name": best_trick,
+                "score": row['total_score']
+            })
+        
+        return ["success", leaderboard_data]  # Format frontend expects
+    except Exception as e:
+        return [f"error: {str(e)}", []]
 
 
 @app.post("/submit_run")
