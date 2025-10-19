@@ -108,9 +108,7 @@
             videoContainer.classList.remove('border-gray-300');
             showMessage(`Video file selected: ${file.name}`, 'info');
             
-            // Simulate score calculation when a video is loaded (Score is out of 100)
-            const score = parseFloat((Math.random() * (100 - 60) + 60).toFixed(2));
-            document.getElementById('score-output-display').textContent = `SCORE: ${score.toFixed(2)}`;
+            
             
         } else {
             videoPreview.src = '';
@@ -208,10 +206,10 @@
         const trick_name = trickInput.value.trim();
         const video_file = videoInput.files[0];
         
-        // Extract the displayed score for submission (ensuring it's between 0 and 100)
+        // Extract the displayed score for submission (ensuring it's between 0 and 10)
         const scoreMatch = scoreDisplay.textContent.match(/SCORE: ([\d.]+)/);
         let score = scoreMatch ? parseFloat(scoreMatch[1]) : 0.0;
-        score = Math.min(100, Math.max(0, score)); // Clamp score between 0 and 100
+        score = Math.min(10, Math.max(0, score)); // Clamp score between 0 and 10
 
         if (!name || !trick_name) {
             showMessage('Error: Please enter your Skate Alias and Trick Name.', 'error');
@@ -353,7 +351,7 @@
 
             <!-- 3. Score Display Section -->
             <section class="space-y-3">
-                <label class="block text-sm font-bold text-gray-700 uppercase">3. SESSION SCORE (OUTPUT: 0-100)</label>
+                <label class="block text-sm font-bold text-gray-700 uppercase">3. SESSION SCORE (OUTPUT: 0-10)</label>
                 <div id="score-output-display" 
                      class="w-full px-4 py-3 border-2 border-aggie-maroon bg-yellow-100 text-gray-900 text-3xl font-extrabold text-center rounded-xl shadow-xl shadow-yellow-200 min-h-[56px] flex items-center justify-center tracking-wider">
                     SCORE: 0.00
