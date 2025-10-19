@@ -1,4 +1,3 @@
-// ...existing code...
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -141,11 +140,7 @@
             const nameSpan = document.createElement('span');
             nameSpan.className = 'block font-medium text-gray-900 uppercase truncate';
             nameSpan.textContent = entry.name || 'ANON';
-            const trickSpan = document.createElement('span');
-            trickSpan.className = 'block text-sm text-gray-500 truncate';
-            trickSpan.textContent = entry.trick_name || 'N/A';
             infoDiv.appendChild(nameSpan);
-            infoDiv.appendChild(trickSpan);
 
             // Score
             const scoreSpan = document.createElement('span');
@@ -181,7 +176,6 @@
             const rankedEntries = (entries || []).map((entry, index) => ({
                 rank: index + 1,
                 name: entry.name || 'ANON',
-                trick_name: (entry.trick_name || '').toUpperCase(),
                 score: Number(entry.score) || 0
             }));
 
@@ -220,10 +214,6 @@
         const name = nameInput.value.trim();
         const trick_name = trickInput.value.trim();
         const video_file = videoInput.files[0];
-        
-        const scoreMatch = scoreDisplay.textContent.match(/SCORE: ([\d.]+)/);
-        let score = scoreMatch ? parseFloat(scoreMatch[1]) : 0.0;
-        score = Math.min(10, Math.max(0, score));
 
         if (!name || !trick_name) {
             showMessage('Error: Please enter your Skate Alias and Trick Name.', 'error');
@@ -247,7 +237,6 @@
         formData.append('video_file', video_file);
         formData.append('name', name);
         formData.append('trick_name', trick_name);
-        formData.append('score', score.toFixed(2));
 
         try {
             const resp = await fetch(`${API_BASE_URL}/submit_run`, {
@@ -265,17 +254,23 @@
             }
 
             const json = await resp.json();
+            console.log("Full API response:", json); // Debug log
             const [status, data] = Array.isArray(json) ? json : [json.status || 'success', json];
+            console.log("Extracted data:", data); // Debug log
 
             if (status !== 'success') {
                 throw new Error('Server reported an error during submission.');
             }
 
-            showMessage(`SUCCESS! Run for "${(data.trick_name||'N/A')}" submitted with score ${(Number(data.score)||0).toFixed(2)} / 100.`, 'success');
+            // Update the score display with the actual AI-generated score
+            const actualScore = Number(data.score) || 0;
+            console.log("Actual score:", actualScore); // Debug log
+            document.getElementById('score-output-display').textContent = `SCORE: ${actualScore.toFixed(2)}`;
+
+            showMessage(`SUCCESS! Run for "${(data.trick_name||'N/A')}" submitted with score ${actualScore.toFixed(2)} / 10.`, 'success');
             
             nameInput.value = '';
             trickInput.value = '';
-            scoreDisplay.textContent = 'SCORE: 0.00';
             videoInput.value = null; 
             document.getElementById('video-preview').src = '';
             document.getElementById('video-preview').classList.add('hidden');
