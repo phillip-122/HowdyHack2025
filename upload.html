@@ -104,6 +104,10 @@
             placeholder.classList.add('hidden');
             videoContainer.classList.add('p-0');
             videoContainer.classList.remove('border-gray-300');
+            
+            // Hide the file input overlay so user can interact with video
+            document.getElementById('video-input').style.pointerEvents = 'none';
+            
             showMessage(`Video file selected: ${file.name}`, 'info');
         } else {
             videoPreview.src = '';
@@ -111,6 +115,10 @@
             placeholder.classList.remove('hidden');
             videoContainer.classList.remove('p-0');
             videoContainer.classList.add('border-gray-300');
+            
+            // Re-enable file input overlay when no video is loaded
+            document.getElementById('video-input').style.pointerEvents = 'auto';
+            
             document.getElementById('score-output-display').textContent = 'SCORE: 0.00';
             if (file) {
                 console.error("Selected file is not a video:", file.type);
@@ -275,6 +283,9 @@
             document.getElementById('video-preview').src = '';
             document.getElementById('video-preview').classList.add('hidden');
             document.getElementById('placeholder-text').classList.remove('hidden');
+            
+            // Re-enable file input overlay after form reset
+            document.getElementById('video-input').style.pointerEvents = 'auto';
             
             loadLeaderboard(); 
 
