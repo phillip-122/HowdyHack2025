@@ -6,49 +6,123 @@ import joblib
 # -------------------------------
 #  CONFIG
 # -------------------------------
-POSE_MODEL_PATH = "yolo11l-pose.pt"
-BOARD_MODEL_PATH = "Board_Model.pt"   # your trained skateboard detector
-VIDEO_PATH = r"C:\Users\varai\Documents\Github Vrain\HowdyHack2025\Tricks\Ollie\Ollie102.mov"
-FPS = 30.0
+def score_video(video_path, trick):
+    POSE_MODEL_PATH = "yolo11l-pose.pt"
+    BOARD_MODEL_PATH = "Board_Model.pt"   # your trained skateboard detector
+    VIDEO_PATH = video_path
+    FPS = 30.0
 
-# Trick models (trained on 50 videos each)
-TRICK_MODELS = {
-    "kickflip": "kickflip_model.pt",
-    "ollie": "ollie_model.pt"
-}
-
-# Expected feature means from our training dataset
-EXPECTED_FEATURES = {
-    "ollie": {
-        "mean_dist": 79.0276641845703,
-        "std_dist": 16.40071868896484,
-        "std_board_angle": 10.663710594177246,
-        "std_torso_angle": 10.90312957763672,
-        "airtime": 0.23395061728395064
-    },
-    "kickflip": {
-        "mean_dist": 82.902587890625,
-        "std_dist": 87.01153564453125,
-        "std_board_angle": 8.528315544128418,
-        "std_torso_angle": 51.08692169189453,
-        "airtime": 0.2009433962264151
+    # Trick models (trained on 50 videos each)
+    TRICK_MODELS = {
+        "kickflip": "kickflip_model.pt",
+        "ollie": "ollie_model.pt"
     }
-}
 
-# -------------------------------
-#  INPUT TRICK NAME
-# -------------------------------
-TRICK_NAME = input("Enter the trick name (kickflip / ollie): ").strip().lower()
-if TRICK_NAME not in TRICK_MODELS:
-    raise ValueError(f"Invalid trick name '{TRICK_NAME}'. Must be one of: {list(TRICK_MODELS.keys())}")
+    # Expected feature means from our training dataset
+    EXPECTED_FEATURES = {
+        "ollie": {
+            "mean_dist": 79.0276641845703,
+            "std_dist": 16.40071868896484,
+            "std_board_angle": 10.663710594177246,
+            "std_torso_angle": 10.90312957763672,
+            "airtime": 0.23395061728395064
+        },
+        "kickflip": {
+            "mean_dist": 82.902587890625,
+            "std_dist": 87.01153564453125,
+            "std_board_angle": 8.528315544128418,
+            "std_torso_angle": 51.08692169189453,
+            "airtime": 0.2009433962264151
+        }
+    }
 
-expected = EXPECTED_FEATURES[TRICK_NAME]
+    # -------------------------------
+    #  INPUT TRICK NAME
+    # -------------------------------
+    TRICK_NAME = trick
+    if TRICK_NAME not in TRICK_MODELS:
+        raise ValueError(f"Invalid trick name '{TRICK_NAME}'. Must be one of: {list(TRICK_MODELS.keys())}")
 
-# -------------------------------
-#  LOAD MODELS
-# -------------------------------
-pose_model = YOLO(POSE_MODEL_PATH)
-board_model = YOLO(BOARD_MODEL_PATH)
+    expected = EXPECTED_FEATURES[TRICK_NAME]
+
+    # -------------------------------
+    #  LOAD MODELS
+    # -------------------------------
+    pose_model = YOLO(POSE_MODEL_PATH)
+    board_model = YOLO(BOARD_MODEL_PATH)
+
+    cap = cv2.VideoCapture(VIDEO_PATH)
+
+    distances = []
+    board_angles = []
+    torso_angles = []
+    airtime_frames_total = 0
+    airborne = False
+    airtime_frames_current = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        pose_result = pose_model(frame, verbose=False)[0]
+        board_result = board_model(frame, verbose=False)[0]
+
+        if pose_result.keypoints is None or len(board_result.boxes) == 0:
+            continue
+
+        keypoints = pose_result.keypoints.xy[0].cpu().numpy()
+        box = board_result.boxes.xyxy[0].cpu().numpy()
+
+        dist = foot_board_distance(keypoints, box)
+        ang_board = board_angle(box)
+        ang_torso = torso_angle(keypoints)
+
+        distances.append(dist)
+        board_angles.append(ang_board)
+        torso_angles.append(ang_torso)
+
+        # Airtime detection
+        if is_airborne(dist):
+            if not airborne:
+                airborne = True
+                airtime_frames_current = 0
+            airtime_frames_current += 1
+        else:
+            if airborne:
+                airborne = False
+                airtime_frames_total += airtime_frames_current
+
+        cap.release()
+
+        # -------------------------------
+        #  POST-PROCESSING & SCORING
+        # -------------------------------
+        if len(distances) > 0:
+            mean_dist = np.mean(distances)
+            std_dist = np.std(distances)
+            std_board_angle = np.std(board_angles)
+            std_torso_angle = np.std(torso_angles)
+            airtime_seconds = airtime_frames_total / FPS
+
+            actual_features = {
+                "mean_dist": mean_dist,
+                "std_dist": std_dist,
+                "std_board_angle": std_board_angle,
+                "std_torso_angle": std_torso_angle,
+                "airtime": airtime_seconds
+            }
+
+            final_score = score_similarity(actual_features, expected)
+
+            print("----------- RESULTS -----------")
+            print(f"Trick: {TRICK_NAME.upper()}")
+            for k, v in actual_features.items():
+                print(f"{k:20s}: {v:.3f}")
+            print(f"🏆 Final Trick Score: {final_score:.2f}/10")
+        else:
+            print("No skater/board detected for scoring.")
+
 
 # -------------------------------
 #  FEATURE FUNCTIONS
@@ -99,74 +173,3 @@ def score_similarity(actual, expected):
 # -------------------------------
 #  PROCESS VIDEO
 # -------------------------------
-cap = cv2.VideoCapture(VIDEO_PATH)
-
-distances = []
-board_angles = []
-torso_angles = []
-airtime_frames_total = 0
-airborne = False
-airtime_frames_current = 0
-
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-
-    pose_result = pose_model(frame, verbose=False)[0]
-    board_result = board_model(frame, verbose=False)[0]
-
-    if pose_result.keypoints is None or len(board_result.boxes) == 0:
-        continue
-
-    keypoints = pose_result.keypoints.xy[0].cpu().numpy()
-    box = board_result.boxes.xyxy[0].cpu().numpy()
-
-    dist = foot_board_distance(keypoints, box)
-    ang_board = board_angle(box)
-    ang_torso = torso_angle(keypoints)
-
-    distances.append(dist)
-    board_angles.append(ang_board)
-    torso_angles.append(ang_torso)
-
-    # Airtime detection
-    if is_airborne(dist):
-        if not airborne:
-            airborne = True
-            airtime_frames_current = 0
-        airtime_frames_current += 1
-    else:
-        if airborne:
-            airborne = False
-            airtime_frames_total += airtime_frames_current
-
-cap.release()
-
-# -------------------------------
-#  POST-PROCESSING & SCORING
-# -------------------------------
-if len(distances) > 0:
-    mean_dist = np.mean(distances)
-    std_dist = np.std(distances)
-    std_board_angle = np.std(board_angles)
-    std_torso_angle = np.std(torso_angles)
-    airtime_seconds = airtime_frames_total / FPS
-
-    actual_features = {
-        "mean_dist": mean_dist,
-        "std_dist": std_dist,
-        "std_board_angle": std_board_angle,
-        "std_torso_angle": std_torso_angle,
-        "airtime": airtime_seconds
-    }
-
-    final_score = score_similarity(actual_features, expected)
-
-    print("----------- RESULTS -----------")
-    print(f"Trick: {TRICK_NAME.upper()}")
-    for k, v in actual_features.items():
-        print(f"{k:20s}: {v:.3f}")
-    print(f"🏆 Final Trick Score: {final_score:.2f}/10")
-else:
-    print("No skater/board detected for scoring.")
