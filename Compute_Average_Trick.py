@@ -1,3 +1,6 @@
+# type: ignore
+# pylint: disable-all
+# pyright: ignore
 import cv2
 import numpy as np
 import supervision as sv

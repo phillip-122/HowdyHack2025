@@ -1,3 +1,7 @@
+# type: ignore
+# pylint: disable-all
+# pyright: ignore
+
 from ultralytics import YOLO
 
 def main(): 

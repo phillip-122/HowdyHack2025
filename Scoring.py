@@ -1,3 +1,7 @@
+# type: ignore
+# pylint: disable-all
+# pyright: ignore
+
 import cv2
 import numpy as np
 from ultralytics import YOLO
