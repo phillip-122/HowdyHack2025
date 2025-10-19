@@ -26,6 +26,8 @@ box_annotator = sv.BoxAnnotator()
 # -------------------------------
 def foot_board_distance(keypoints, board_box):
     """Average distance between both feet and skateboard center."""
+    if len(keypoints) < 17:  # make sure left+right foot exist
+        return None
     x1, y1, x2, y2 = board_box
     board_center = np.array([(x1 + x2) / 2, (y1 + y2) / 2])
     left_foot = keypoints[15]
@@ -49,6 +51,15 @@ def torso_angle(keypoints):
 def is_airborne(dist, threshold=50):
     return dist > threshold
 
+# Convert NumPy types to Python native types
+def convert_to_native(obj):
+    if isinstance(obj, np.float32) or isinstance(obj, np.float64):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: convert_to_native(v) for k, v in obj.items()}
+    return obj
+
+
 def compute_video_features(video_path):
     """Run pose+board models on a video and extract summary stats."""
     cap = cv2.VideoCapture(video_path)
@@ -65,7 +76,7 @@ def compute_video_features(video_path):
         pose_result = pose_model(frame, verbose=False)[0]
         board_result = board_model(frame, verbose=False)[0]
 
-        if pose_result.keypoints is None or len(board_result.boxes) == 0:
+        if pose_result.keypoints is None or len(board_result.boxes) == 0 or len(pose_result.keypoints) == 0:
             continue
         if (len(pose_result.keypoints.xy) == 0):
             continue
@@ -75,6 +86,8 @@ def compute_video_features(video_path):
         box = board_result.boxes.xyxy[0].cpu().numpy()
 
         dist = foot_board_distance(keypoints, box)
+        if dist is None:
+            continue
         ang_b = board_angle(box)
         ang_t = torso_angle(keypoints)
 
@@ -126,7 +139,7 @@ for filename in os.listdir(TRAINING_DIR):
     if feats:
         all_features.append(feats)
     else:
-        print(f"⚠️ Skipped {filename} (no detections)")
+        print(f"Skipped {filename} (no detections)")
 
 # -------------------------------
 #  COMPUTE AVERAGES
@@ -143,9 +156,12 @@ if len(all_features) > 0:
     }
 
     with open(OUTPUT_JSON, "w") as f:
-        json.dump(result, f, indent=2)
+        json.dump(convert_to_native(result), f, indent=2)
 
-    print("\n✅ Saved averaged kickflip features to:", OUTPUT_JSON)
-    print(json.dumps(result, indent=2))
+
+    print("\nSaved averaged kickflip features to:", OUTPUT_JSON)
+    # Convert for printing too
+    print(json.dumps(convert_to_native(result), indent=2))
+
 else:
     print("No valid videos processed.")
