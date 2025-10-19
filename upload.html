@@ -1,19 +1,20 @@
+// ...existing code...
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Skate Session Logger | TAMU Edition (API Active)</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Custom Tailwind config to define Aggie Maroon (MUST come BEFORE loading the CDN) -->
     <script>
-        // Custom Tailwind config to define Aggie Maroon
+        window.tailwind = window.tailwind || {};
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'aggie-maroon': '#500000', // Primary TAMU color
-                        'maroon-hover': '#3e0000', // Slightly darker for hover states
+                        'aggie-maroon': '#500000',
+                        'maroon-hover': '#3e0000',
                     },
                     fontFamily: {
                         'sans': ['Inter', 'sans-serif'],
@@ -22,34 +23,33 @@
             }
         }
     </script>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
         /* Custom font import for a cleaner look */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         
         body {
             font-family: 'Inter', sans-serif;
-            /* Light, inviting background */
-            background-color: #f1f5f9; /* bg-slate-100 */
+            background-color: #f1f5f9;
         }
 
-        /* Hide the default file input text */
         input[type="file"] {
             color: transparent;
         }
 
-        /* Style the video player controls */
         #video-preview {
             max-height: 400px;
             object-fit: contain;
             width: 100%;
-            border-radius: 0.75rem; /* rounded-xl */
+            border-radius: 0.75rem;
         }
     </style>
     <script type="module">
     
-    // --- API Configuration (Active) ---
-    // Set this to your running FastAPI server address.
-    const API_BASE_URL = 'http://127.0.0.1:8000'; 
+    // --- API Configuration (use same origin so static + API are on same port) ---
+   const API_BASE_URL = window.location.origin;
 
     // --- Utility Functions ---
     
@@ -69,7 +69,6 @@
         } else if (pageId === 'leaderboard-page') {
             document.getElementById('nav-leaderboard').classList.add('bg-aggie-maroon', 'text-white');
             document.getElementById('nav-leaderboard').classList.remove('bg-gray-200', 'text-gray-700');
-            // Automatically refresh leaderboard when switching to this page
             loadLeaderboard();
         }
     }
@@ -107,9 +106,6 @@
             videoContainer.classList.add('p-0');
             videoContainer.classList.remove('border-gray-300');
             showMessage(`Video file selected: ${file.name}`, 'info');
-            
-            
-            
         } else {
             videoPreview.src = '';
             videoPreview.classList.add('hidden');
@@ -124,7 +120,6 @@
     }
     
     // --- LEADERBOARD RENDERING HELPER ---
-
     function renderLeaderboard(entries) {
         const leaderboardList = document.getElementById('leaderboard-list');
         leaderboardList.innerHTML = ''; 
@@ -133,24 +128,39 @@
             const li = document.createElement('li');
             li.className = 'flex justify-between items-center py-3 px-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition duration-150';
             
-            // Determine color based on rank for top 3
-            const rankColor = entry.rank <= 3 ? 'aggie-maroon' : 'gray-500';
+            const rankColorClass = entry.rank <= 3 ? 'text-aggie-maroon' : 'text-gray-500';
 
-            li.innerHTML = `
-                <span class="font-extrabold text-2xl w-10 text-center text-${rankColor}">${entry.rank}</span>
-                <div class="flex-1 min-w-0 pr-4">
-                    <span class="block font-medium text-gray-900 uppercase truncate">${entry.name}</span>
-                    <span class="block text-sm text-gray-500 truncate">${entry.trick_name || 'N/A'}</span>
-                </div>
-                <span class="font-extrabold text-2xl text-${rankColor}">${entry.score.toFixed(2)} pts</span>
-            `;
+            // Rank
+            const rankSpan = document.createElement('span');
+            rankSpan.className = `font-extrabold text-2xl w-10 text-center ${rankColorClass}`;
+            rankSpan.textContent = entry.rank;
+
+            // Info
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'flex-1 min-w-0 pr-4';
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'block font-medium text-gray-900 uppercase truncate';
+            nameSpan.textContent = entry.name || 'ANON';
+            const trickSpan = document.createElement('span');
+            trickSpan.className = 'block text-sm text-gray-500 truncate';
+            trickSpan.textContent = entry.trick_name || 'N/A';
+            infoDiv.appendChild(nameSpan);
+            infoDiv.appendChild(trickSpan);
+
+            // Score
+            const scoreSpan = document.createElement('span');
+            scoreSpan.className = `font-extrabold text-2xl ${rankColorClass}`;
+            scoreSpan.textContent = `${Number(entry.score || 0).toFixed(2)} pts`;
+
+            li.appendChild(rankSpan);
+            li.appendChild(infoDiv);
+            li.appendChild(scoreSpan);
+
             leaderboardList.appendChild(li);
         });
     }
 
-
     // --- API LEADERBOARD LOADER ---
-
     async function loadLeaderboard() {
         const leaderboardList = document.getElementById('leaderboard-list');
         const refreshButton = document.getElementById('refresh-rankings-btn');
@@ -159,20 +169,20 @@
         refreshButton.textContent = 'REFRESHING...';
 
         try {
-            // Fetch data from the FastAPI /leaderboard endpoint
             const response = await fetch(`${API_BASE_URL}/leaderboard`);
-            // FastAPI returns a Tuple[str, List[LeaderboardEntry]]
-            const [statusMessage, entries] = await response.json(); 
+            const json = await response.json();
+            // Support both Tuple[str, entries] and { status, entries }
+            const [statusMessage, entries] = Array.isArray(json) ? json : [json.status || 'error', json.entries || json];
 
             if (!response.ok || statusMessage !== 'success') {
                 throw new Error(statusMessage || 'API returned a non-success status.');
             }
             
-            const rankedEntries = entries.map((entry, index) => ({
+            const rankedEntries = (entries || []).map((entry, index) => ({
                 rank: index + 1,
-                name: entry.name,
-                trick_name: entry.trick_name.toUpperCase(),
-                score: entry.score
+                name: entry.name || 'ANON',
+                trick_name: (entry.trick_name || '').toUpperCase(),
+                score: Number(entry.score) || 0
             }));
 
             if (rankedEntries.length === 0) {
@@ -194,8 +204,13 @@
     }
 
     // --- API SUBMISSION HANDLER (MODIFIED FOR FILE UPLOAD) ---
-
     async function handleSubmission() {
+        const saveBtn = document.getElementById('save-analysis-btn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'SUBMITTING...';
+        }
+
         // 1. Collect and validate data
         const nameInput = document.getElementById('name-input');
         const trickInput = document.getElementById('trick-name-input');
@@ -206,82 +221,81 @@
         const trick_name = trickInput.value.trim();
         const video_file = videoInput.files[0];
         
-        // Extract the displayed score for submission (ensuring it's between 0 and 10)
         const scoreMatch = scoreDisplay.textContent.match(/SCORE: ([\d.]+)/);
         let score = scoreMatch ? parseFloat(scoreMatch[1]) : 0.0;
-        score = Math.min(10, Math.max(0, score)); // Clamp score between 0 and 10
+        score = Math.min(10, Math.max(0, score));
 
         if (!name || !trick_name) {
             showMessage('Error: Please enter your Skate Alias and Trick Name.', 'error');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'DROP IN & SUBMIT SCORE';
+            }
             return;
         }
         
         if (videoInput.files.length === 0 || !video_file) {
-                showMessage('Error: Please upload a video file for evidence.', 'error');
+            showMessage('Error: Please upload a video file for evidence.', 'error');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'DROP IN & SUBMIT SCORE';
+            }
             return;
         }
 
-        // 2. Prepare payload using FormData
-        // FormData is required for file uploads and will be read by your FastAPI backend
-        // (assuming the backend endpoint is configured to accept a File/UploadFile).
         const formData = new FormData();
-        formData.append('video_file', video_file); // Key must match the backend's expected field name
+        formData.append('video_file', video_file);
         formData.append('name', name);
         formData.append('trick_name', trick_name);
-        formData.append('score', score.toFixed(2)); // Send score as a string with 2 decimal places
-        
-        const response = await fetch(`${API_BASE_URL}/submit_run`, { // Matches corrected backend path
-            method: 'POST',
-            body: formData
-        });
-        // 3. Send data to FastAPI
+        formData.append('score', score.toFixed(2));
+
         try {
-            const response = await fetch(`${API_BASE_URL}/submit_run`, {
+            const resp = await fetch(`${API_BASE_URL}/submit_run`, {
                 method: 'POST',
-                // IMPORTANT: Do NOT set Content-Type header manually for FormData. 
-                // The browser sets it automatically with the correct boundary.
                 body: formData 
             });
 
-            if (!response.ok) {
-                // Try to parse server error response if available
+            if (!resp.ok) {
                 let errorDetails = 'Submission failed on server.';
                 try {
-                    const error = await response.json();
-                    errorDetails = error.detail || errorDetails;
-                } catch {} // Ignore parsing error if response isn't JSON
+                    const err = await resp.json();
+                    errorDetails = err.detail || err.message || errorDetails;
+                } catch {}
                 throw new Error(errorDetails);
             }
 
-            const [status, data] = await response.json();
+            const json = await resp.json();
+            const [status, data] = Array.isArray(json) ? json : [json.status || 'success', json];
+
+            if (status !== 'success') {
+                throw new Error('Server reported an error during submission.');
+            }
+
+            showMessage(`SUCCESS! Run for "${(data.trick_name||'N/A')}" submitted with score ${(Number(data.score)||0).toFixed(2)} / 100.`, 'success');
             
-            showMessage(`SUCCESS! Run for "${data.trick_name}" submitted with score ${data.score.toFixed(2)} / 100.`, 'success');
-            
-            // Clear the form fields upon success and reset the score display
             nameInput.value = '';
             trickInput.value = '';
             scoreDisplay.textContent = 'SCORE: 0.00';
-            // Reset video input and preview
             videoInput.value = null; 
             document.getElementById('video-preview').src = '';
             document.getElementById('video-preview').classList.add('hidden');
             document.getElementById('placeholder-text').classList.remove('hidden');
             
-            // Load leaderboard to show the new ranking
             loadLeaderboard(); 
 
         } catch (error) {
             console.error("Submission Error:", error);
             showMessage(`SUBMISSION FAILED: Cannot connect to API or server error. (${error.message})`, 'error');
         } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'DROP IN & SUBMIT SCORE';
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'DROP IN & SUBMIT SCORE';
+            }
         }
     }
 
 
     // --- Event Listeners and Initialization ---
-
     window.onload = function() {
         const videoInput = document.getElementById('video-input');
         const saveBtn = document.getElementById('save-analysis-btn');
@@ -296,12 +310,9 @@
         
         document.getElementById('nav-submit').addEventListener('click', () => showPage('submission-page'));
         document.getElementById('nav-leaderboard').addEventListener('click', () => showPage('leaderboard-page'));
-        document.getElementById('refresh-rankings-btn').addEventListener('click', loadLeaderboard); // Ensure the button is properly hooked
+        document.getElementById('refresh-rankings-btn').addEventListener('click', loadLeaderboard);
 
-        // Initial view setup
         showPage('submission-page');
-        
-        // Set initial score display
         document.getElementById('score-output-display').textContent = 'SCORE: 0.00';
     };
     </script>
