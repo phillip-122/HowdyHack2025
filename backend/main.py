@@ -1,11 +1,13 @@
-from http.client import HTTPException
-from fastapi import FastAPI, Form, UploadFile
+from fastapi import FastAPI, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Any
 
-from pydantic import BaseModel
 import backend.database as db
 
 app = FastAPI()
+
+# Initialize database
+db.init_db()
 
 # Add CORS middleware
 app.add_middleware(
@@ -22,18 +24,15 @@ def score_video(file: UploadFile) -> float:
     return 7.5  # Example fixed score for demonstration
 
 @app.get("/leaderboard")
-def get_leaderboard():
+def get_leaderboard()-> Any:
     return {"leaderboard": db.get_top_scores()}
 
-class SubmitResponse(BaseModel):
-    name: str
-    score: float
-    message: str
+
 @app.post("/submit_run")
 async def submit_run(
     name: str = Form(...), 
     trick_name: str = Form(...), 
-    video_file: UploadFile = Form(...)) -> SubmitResponse:
+    video_file: UploadFile = Form(...))-> Any:
     # validate inputs
     if not video_file.filename or not video_file.filename.endswith(('.mov')):
         raise HTTPException(400, "Invalid file type. Please upload a video file.")
@@ -49,10 +48,15 @@ async def submit_run(
     if not success:
         raise HTTPException(400, msg)
     
-    return SubmitResponse(
-        name=name,
-        score=score,
-        message=f"Run for {name}, {trick_name} submitted successfully!"
-    )
+    return [
+    "success",
+    {
+        "name": name,
+        "trick_name": trick_name,
+        "score": score,
+        "message": f"Run for {name}, {trick_name} submitted successfully!"
+    }
+]
+
     
 #@app.get("/user/{username}") # get specific user's score
