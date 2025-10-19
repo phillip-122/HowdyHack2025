@@ -115,6 +115,9 @@
             placeholder.classList.remove('hidden');
             videoContainer.classList.remove('p-0');
             videoContainer.classList.add('border-gray-300');
+            if (file) {
+                console.error("Selected file is not a video:", file.type);
+            }
             
             // Re-enable file input overlay when no video is loaded
             document.getElementById('video-input').style.pointerEvents = 'auto';
