@@ -119,7 +119,7 @@ def score_video(video_path, trick):
             print(f"Trick: {TRICK_NAME.upper()}")
             for k, v in actual_features.items():
                 print(f"{k:20s}: {v:.3f}")
-            print(f"🏆 Final Trick Score: {final_score:.2f}/10")
+            print(f"Final Trick Score: {final_score:.2f}/10")
         else:
             print("No skater/board detected for scoring.")
 
