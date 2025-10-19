@@ -1,0 +1,4 @@
+.venv/
+leaderboard.db
+/backend/__pycache__
+backend/__pycache__/main.cpython-313.pyc
