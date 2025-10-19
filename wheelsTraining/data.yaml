@@ -1,0 +1,13 @@
+train: wheelsTraining\train
+val: wheelsTraining\valid
+test: wheelsTraining\test
+
+nc: 4
+names: ['-', 'Skatepark - v1 2024-03-19 7-07pm', 'This dataset was exported via roboflow.com on April 17- 2024 at 4-47 PM GMT', 'object']
+
+roboflow:
+  workspace: medhaclass
+  project: skatepark-5or0z
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/medhaclass/skatepark-5or0z/dataset/1
